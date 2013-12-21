@@ -8,17 +8,17 @@
  */
 
 #define REQUEST_DATA_DELAY 250 
-#define INPUT_BUFFER_SIZE 128
+#define INPUT_BUFFER_SIZE 256
 
 #define MSP_IDENT     100   //out message         multitype + multiwii 
 #define MSP_STATUS    101   //out message         cycletime & errors_count & sensor present & box activation 
-#define MSP_BAT       110   //out message         vbat, powermetersum 
+#define MSP_ANALOG    110   //out message         vbat, powermetersum, rssi, amperage 
 #define MSP_ALTITUDE  109   //out message         1 altitude 
 #define MSP_RAW_GPS   106   //out message         fix, numsat, lat, lon, alt, speed
 #define MSP_COMP_GPS  107   //out message         distance home, direction home
 #define MSP_ATTITUDE  108   //out message         2 angles 1 heading 
 #define MSP_ALTITUDE  109   //out message         1 altitude 
-#define MSP_HEADING   125   //out message         headings and MAG configuration 
+
 
 static uint8_t inBuffer[INPUT_BUFFER_SIZE];
 static uint8_t indRX;
@@ -37,12 +37,12 @@ uint8_t read8()  {
   return inBuffer[indRX++]&0xff;
 }
 
-const static uint8_t schedule[] = { MSP_BAT, MSP_ALTITUDE, 
+const static uint8_t schedule[] = { MSP_ANALOG, MSP_ALTITUDE, 
                                     #ifdef MultiWii_GPS
                                       MSP_RAW_GPS, 
                                       MSP_COMP_GPS, 
                                     #endif
-                                    MSP_HEADING };
+                                    };
 
 /**
  * Main method of MultiWii integration.
@@ -142,8 +142,8 @@ void mwEvaluateResponse() {
  */
 static void mwEvaluateMSPResponse(uint8_t cmd) {
   switch(cmd) {
-    case MSP_BAT:
-      mwEvaluateMSP_BAT();
+    case MSP_ANALOG:
+      mwEvaluateMSP_ANALOG();
       break;
     case MSP_ATTITUDE:
       mwEvaluateMSP_ATTITUDE();
@@ -159,18 +159,17 @@ static void mwEvaluateMSPResponse(uint8_t cmd) {
         mwEvaluateMSP_COMP_GPS();
         break;
     #endif
-    case MSP_HEADING:
-      mwEvaluateMSP_HEADING();
-      break;
   }
 }
 
 /**
  * Reads VBAT from given MSP data frame and stores it for later usage.
  */
-static void mwEvaluateMSP_BAT() {
+static void mwEvaluateMSP_ANALOG() {
   MultiHoTTModule.vbat2 = read8();  //data[0];
   MultiHoTTModule.intPowerMeterSum = read16();  //data[1]+(data[2]*0x100);
+  MultiHoTTModule.rssi = read16();      //data[3]+(data[4]*0x100);
+  MultiHoTTModule.amperage = read16();  //data[5]+(data[6]*0x100);
   #ifdef DEBUG_MWii
       LCD_set_line(3);
       LCD_Print("EAM ");
@@ -240,19 +239,5 @@ static void mwEvaluateMSP_RAW_GPS() {
     #endif
   }
 #endif
-
-/**
- * Reads HEADING from MSP data frame and stores it for later usage.
- */
-static void mwEvaluateMSP_HEADING() {
-//     serialize8( f.MAG_MODE<<0 | f.HEADFREE_MODE<<1 );
-//     serialize16(heading);
-//     serialize16(magHold);
-//     serialize16(headFreeModeHold);
-  MultiHoTTModule.magMode          = read8();   //data[0];
-  MultiHoTTModule.heading          = read16();  //data[1]+(data[2]*0x100);
-  MultiHoTTModule.magHold          = read16();  //data[3]+(data[4]*0x100);
-  MultiHoTTModule.headFreeModeHold = read16();  //data[5]+(data[6]*0x100);
-}
 
 
